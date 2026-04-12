@@ -120,6 +120,8 @@ io.on('connection', async (socket) => {
   // ========== MATCHMAKING ==========
 
   socket.on('join_queue', ({ type, interests }) => {
+    console.log(`[JOIN_QUEUE] ${socket.id} joining ${type} queue, interests: ${JSON.stringify(interests)}`);
+
     // Remove from any existing room first
     const partnerId = rooms.removeUserFromRoom(socket.id);
     if (partnerId) {
@@ -129,8 +131,11 @@ io.on('connection', async (socket) => {
     matchmaker.removeFromQueue(socket.id);
     matchmaker.addToQueue(socket.id, type, interests || []);
 
+    console.log(`[QUEUE] video: ${matchmaker.getQueueSize('video')}, text: ${matchmaker.getQueueSize('text')}`);
+
     // Try immediate match
     const match = matchmaker.findMatch(socket.id, type);
+    console.log(`[MATCH] result:`, match ? `PAIRED ${match.user1} <-> ${match.user2}` : 'no match yet');
     if (match) {
       emitMatch(match);
     }
