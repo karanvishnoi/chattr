@@ -34,6 +34,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// Debug endpoint - check queue state
+app.get('/api/debug', (req, res) => {
+  res.json({
+    online: onlineCount,
+    videoQueue: matchmaker.getQueueSize('video'),
+    textQueue: matchmaker.getQueueSize('text'),
+    totalQueue: matchmaker.getTotalQueueSize(),
+    connectedSockets: io.sockets.sockets.size,
+  });
+});
+
 // Serve static client build in production (only if dist exists)
 const fs = require('fs');
 const clientDist = path.join(__dirname, '../client/dist');
@@ -96,20 +107,9 @@ function emitMatch(match) {
 }
 
 // Socket.io connection handler
-io.on('connection', async (socket) => {
+io.on('connection', (socket) => {
   const clientIP = getClientIP(socket);
-
-  // Check IP ban
-  try {
-    const banned = await moderation.isIPBanned(clientIP);
-    if (banned) {
-      socket.emit('banned', { message: 'You are temporarily banned. Please try again later.' });
-      socket.disconnect(true);
-      return;
-    }
-  } catch (err) {
-    console.error('Ban check error:', err.message);
-  }
+  console.log(`[CONNECT] ${socket.id} from ${clientIP}`);
 
   onlineCount++;
   broadcastOnlineCount();
