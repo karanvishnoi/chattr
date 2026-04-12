@@ -1,4 +1,5 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+// v2 - CORS fix deployed
 
 module.exports = {
   PORT: process.env.PORT || 3001,
