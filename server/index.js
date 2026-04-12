@@ -36,16 +36,16 @@ const io = new Server(server, { cors: corsOptions });
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// Health check (must be before static files)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // Serve static client build in production
 if (config.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '../client/dist');
   app.use(express.static(clientDist));
 }
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime() });
-});
 
 // Track connected users
 let onlineCount = 0;
