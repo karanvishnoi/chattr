@@ -12,14 +12,28 @@ const moderation = require('./moderation');
 const app = express();
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: config.CLIENT_URL,
-    methods: ['GET', 'POST'],
-  },
-});
+const allowedOrigins = [
+  config.CLIENT_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean);
 
-app.use(cors({ origin: config.CLIENT_URL }));
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.some((allowed) => origin.startsWith(allowed) || origin.includes('vercel.app'))) {
+      return callback(null, true);
+    }
+    callback(null, true); // Allow all origins for now (production: restrict this)
+  },
+  methods: ['GET', 'POST'],
+  credentials: true,
+};
+
+const io = new Server(server, { cors: corsOptions });
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Serve static client build in production
