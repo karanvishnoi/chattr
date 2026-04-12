@@ -1,0 +1,23 @@
+{
+  "name": "chattr",
+  "version": "1.0.0",
+  "description": "Random stranger video & text chat platform",
+  "scripts": {
+    "server": "node server/index.js",
+    "server:dev": "nodemon server/index.js",
+    "client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run server:dev\" \"npm run client\""
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.10.1",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "nodemon": "^3.1.9"
+  }
+}

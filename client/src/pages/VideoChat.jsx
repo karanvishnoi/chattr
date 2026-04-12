@@ -1,0 +1,173 @@
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import useMatchmaker from '../hooks/useMatchmaker';
+import useWebRTC from '../hooks/useWebRTC';
+import useSocket from '../hooks/useSocket';
+import VideoPanel from '../components/VideoPanel';
+import ChatBox from '../components/ChatBox';
+import Controls from '../components/Controls';
+import StatusOverlay from '../components/StatusOverlay';
+import ReportModal from '../components/ReportModal';
+
+export default function VideoChat() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { onlineCount } = useSocket();
+  const { status, isInitiator, partnerId, joinQueue, next, stop } = useMatchmaker('video');
+  const {
+    localVideoRef,
+    remoteVideoRef,
+    isMuted,
+    isCameraOff,
+    connectionState,
+    mediaError,
+    toggleMute,
+    toggleCamera,
+    startLocalStream,
+    stopLocalStream,
+  } = useWebRTC(isInitiator, partnerId, status);
+
+  const [showReport, setShowReport] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
+
+  // Start camera and join queue on mount
+  useEffect(() => {
+    startLocalStream().then(() => {
+      joinQueue(interests);
+    });
+
+    return () => {
+      stopLocalStream();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleNext() {
+    next();
+  }
+
+  function handleStop() {
+    stopLocalStream();
+    stop();
+    navigate('/');
+  }
+
+  return (
+    <div className="h-screen flex flex-col bg-dark overflow-hidden">
+      {/* Header */}
+      <header className="flex items-center justify-between px-4 md:px-6 py-2 border-b border-dark-border bg-dark-card/50 backdrop-blur-sm z-10">
+        <button
+          onClick={() => navigate('/')}
+          className="text-xl font-bold tracking-tight cursor-pointer"
+        >
+          Chatt<span className="text-accent">r</span>
+        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Toggle chat panel */}
+          <button
+            onClick={() => setShowChat(!showChat)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              showChat ? 'bg-accent/20 text-accent-light' : 'bg-dark-border text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            Chat
+          </button>
+
+          {/* Report */}
+          <button
+            onClick={() => setShowReport(true)}
+            disabled={status !== 'connected'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs text-text-secondary hover:text-danger bg-dark-border hover:bg-danger/10 transition-colors disabled:opacity-30 cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+              <line x1="4" y1="22" x2="4" y2="15" />
+            </svg>
+            Report
+          </button>
+
+          {/* Online count */}
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-text-secondary">
+            <span className="w-2 h-2 bg-success rounded-full" />
+            {onlineCount} online
+          </div>
+        </div>
+      </header>
+
+      {/* Main content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Video section */}
+        <div className="flex-1 flex flex-col relative">
+          {/* Media error overlay */}
+          {mediaError && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-dark/90">
+              <div className="text-center max-w-sm px-6">
+                <div className="text-4xl mb-4">📷</div>
+                <h3 className="text-lg font-semibold mb-2">Camera Access Needed</h3>
+                <p className="text-sm text-text-secondary mb-4">{mediaError}</p>
+                <button
+                  onClick={() => startLocalStream()}
+                  className="px-6 py-2.5 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors cursor-pointer"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Status overlay */}
+          {status !== 'connected' && !mediaError && (
+            <StatusOverlay status={status} />
+          )}
+
+          {/* Video panel */}
+          <div className="flex-1 p-2 md:p-4">
+            <VideoPanel
+              localVideoRef={localVideoRef}
+              remoteVideoRef={remoteVideoRef}
+              connectionState={connectionState}
+            />
+          </div>
+
+          {/* Controls */}
+          <div className="p-3 md:p-4 border-t border-dark-border bg-dark-card/50">
+            <Controls
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+              onToggleMute={toggleMute}
+              onToggleCamera={toggleCamera}
+              onNext={handleNext}
+              onStop={handleStop}
+              showCameraControls={true}
+            />
+          </div>
+        </div>
+
+        {/* Side chat panel */}
+        {showChat && (
+          <div className="w-80 lg:w-96 border-l border-dark-border hidden md:flex flex-col">
+            <div className="p-3 border-b border-dark-border flex items-center justify-between">
+              <span className="text-sm font-medium text-text-secondary">Text Chat</span>
+              <button
+                onClick={() => setShowChat(false)}
+                className="text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ChatBox status={status} compact />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
+    </div>
+  );
+}
