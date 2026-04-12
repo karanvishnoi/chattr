@@ -3,22 +3,27 @@ import socket from '../socket';
 
 const ICE_SERVERS = {
   iceServers: [
+    { urls: 'stun:stun.relay.metered.ca:80' },
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
     {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:80',
+      username: '4bc7e9fc7df0cbbda8a605ec',
+      credential: 'LJqA15FcsAtoKMda',
     },
     {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: '4bc7e9fc7df0cbbda8a605ec',
+      credential: 'LJqA15FcsAtoKMda',
     },
     {
-      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-      username: 'openrelayproject',
-      credential: 'openrelayproject',
+      urls: 'turn:global.relay.metered.ca:443',
+      username: '4bc7e9fc7df0cbbda8a605ec',
+      credential: 'LJqA15FcsAtoKMda',
+    },
+    {
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: '4bc7e9fc7df0cbbda8a605ec',
+      credential: 'LJqA15FcsAtoKMda',
     },
   ],
 };
