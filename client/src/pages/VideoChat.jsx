@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import useMatchmaker from '../hooks/useMatchmaker';
 import useWebRTC from '../hooks/useWebRTC';
 import useSocket from '../hooks/useSocket';
+import { useAuth } from '../context/AuthContext';
 import VideoPanel from '../components/VideoPanel';
 import ChatBox from '../components/ChatBox';
 import Controls from '../components/Controls';
@@ -13,7 +14,13 @@ export default function VideoChat() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { onlineCount } = useSocket();
-  const { status, isInitiator, partnerId, joinQueue, next, stop } = useMatchmaker('video');
+  const { user } = useAuth();
+  const genderPref = searchParams.get('genderPref') || 'any';
+  const { status, isInitiator, partnerId, joinQueue, next, stop } = useMatchmaker('video', {
+    gender: user?.gender,
+    genderPreference: genderPref,
+    isPremium: user?.plan !== 'free',
+  });
   const {
     localVideoRef,
     remoteVideoRef,

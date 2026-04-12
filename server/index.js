@@ -34,6 +34,12 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// Auth & subscription routes
+const authRoutes = require('./routes/auth');
+const subscriptionRoutes = require('./routes/subscription');
+app.use('/api/auth', authRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+
 // Debug endpoint - check queue state
 app.get('/api/debug', (req, res) => {
   res.json({
@@ -119,8 +125,8 @@ io.on('connection', (socket) => {
 
   // ========== MATCHMAKING ==========
 
-  socket.on('join_queue', ({ type, interests }) => {
-    console.log(`[JOIN_QUEUE] ${socket.id} joining ${type} queue, interests: ${JSON.stringify(interests)}`);
+  socket.on('join_queue', ({ type, interests, gender, genderPreference, isPremium }) => {
+    console.log(`[JOIN_QUEUE] ${socket.id} type=${type} gender=${gender} pref=${genderPreference}`);
 
     // Remove from any existing room first
     const partnerId = rooms.removeUserFromRoom(socket.id);
@@ -129,13 +135,10 @@ io.on('connection', (socket) => {
     }
 
     matchmaker.removeFromQueue(socket.id);
-    matchmaker.addToQueue(socket.id, type, interests || []);
-
-    console.log(`[QUEUE] video: ${matchmaker.getQueueSize('video')}, text: ${matchmaker.getQueueSize('text')}`);
+    matchmaker.addToQueue(socket.id, type, { interests: interests || [], gender, genderPreference, isPremium });
 
     // Try immediate match
     const match = matchmaker.findMatch(socket.id, type);
-    console.log(`[MATCH] result:`, match ? `PAIRED ${match.user1} <-> ${match.user2}` : 'no match yet');
     if (match) {
       emitMatch(match);
     }
@@ -153,7 +156,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('next', ({ type, interests }) => {
+  socket.on('next', ({ type, interests, gender, genderPreference, isPremium }) => {
     // Leave current room
     const partnerId = rooms.removeUserFromRoom(socket.id);
     if (partnerId) {
@@ -173,7 +176,7 @@ io.on('connection', (socket) => {
 
     // Re-queue
     matchmaker.removeFromQueue(socket.id);
-    matchmaker.addToQueue(socket.id, type, interests || []);
+    matchmaker.addToQueue(socket.id, type, { interests: interests || [], gender, genderPreference, isPremium });
 
     const match = matchmaker.findMatch(socket.id, type);
     if (match) {

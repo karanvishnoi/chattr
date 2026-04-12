@@ -1,17 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import useMatchmaker from '../hooks/useMatchmaker';
 import useSocket from '../hooks/useSocket';
+import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import StatusOverlay from '../components/StatusOverlay';
 import ReportModal from '../components/ReportModal';
-import { useState } from 'react';
 
 export default function TextChat() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { onlineCount } = useSocket();
-  const { status, joinQueue, next, stop } = useMatchmaker('text');
+  const { user } = useAuth();
+  const genderPref = searchParams.get('genderPref') || 'any';
+  const { status, joinQueue, next, stop } = useMatchmaker('text', {
+    gender: user?.gender,
+    genderPreference: genderPref,
+    isPremium: user?.plan !== 'free',
+  });
   const [showReport, setShowReport] = useState(false);
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];

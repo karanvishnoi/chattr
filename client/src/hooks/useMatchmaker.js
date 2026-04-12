@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import socket from '../socket';
 
-export default function useMatchmaker(type) {
+export default function useMatchmaker(type, userInfo = {}) {
   const [status, setStatus] = useState('idle'); // idle | searching | connected | disconnected
   const [roomId, setRoomId] = useState(null);
   const [partnerId, setPartnerId] = useState(null);
   const [isInitiator, setIsInitiator] = useState(false);
   const interestsRef = useRef([]);
+  const userInfoRef = useRef(userInfo);
   const autoRequeueRef = useRef(null);
 
   useEffect(() => {
@@ -26,7 +27,13 @@ export default function useMatchmaker(type) {
       // Auto-requeue after 2 seconds
       autoRequeueRef.current = setTimeout(() => {
         setStatus('searching');
-        socket.emit('join_queue', { type, interests: interestsRef.current });
+        socket.emit('join_queue', {
+          type,
+          interests: interestsRef.current,
+          gender: userInfoRef.current.gender,
+          genderPreference: userInfoRef.current.genderPreference || 'any',
+          isPremium: userInfoRef.current.isPremium || false,
+        });
       }, 2000);
     }
 
@@ -53,7 +60,13 @@ export default function useMatchmaker(type) {
     setStatus('searching');
     setRoomId(null);
     setPartnerId(null);
-    socket.emit('join_queue', { type, interests });
+    socket.emit('join_queue', {
+      type,
+      interests,
+      gender: userInfoRef.current.gender,
+      genderPreference: userInfoRef.current.genderPreference || 'any',
+      isPremium: userInfoRef.current.isPremium || false,
+    });
   }, [type]);
 
   const leaveQueue = useCallback(() => {
@@ -68,7 +81,13 @@ export default function useMatchmaker(type) {
     setRoomId(null);
     setPartnerId(null);
     setIsInitiator(false);
-    socket.emit('next', { type, interests: interestsRef.current });
+    socket.emit('next', {
+      type,
+      interests: interestsRef.current,
+      gender: userInfoRef.current.gender,
+      genderPreference: userInfoRef.current.genderPreference || 'any',
+      isPremium: userInfoRef.current.isPremium || false,
+    });
   }, [type]);
 
   const stop = useCallback(() => {

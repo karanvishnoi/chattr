@@ -1,8 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { createRoom } = require('./rooms');
-const { INTEREST_MATCH_TIMEOUT_MS } = require('./config');
 
-// Queues: Map<socketId, { interests: string[], joinedAt: number }>
+// Queues: Map<socketId, { interests, gender, genderPreference, isPremium, joinedAt }>
 const videoQueue = new Map();
 const textQueue = new Map();
 
@@ -10,12 +9,14 @@ function getQueue(type) {
   return type === 'video' ? videoQueue : textQueue;
 }
 
-function addToQueue(socketId, type, interests = []) {
+function addToQueue(socketId, type, { interests = [], gender = null, genderPreference = 'any', isPremium = false } = {}) {
   const queue = getQueue(type);
-  // Don't add if already in queue
   if (queue.has(socketId)) return;
   queue.set(socketId, {
     interests: interests.map((i) => i.toLowerCase().trim()).filter(Boolean),
+    gender,
+    genderPreference,
+    isPremium,
     joinedAt: Date.now(),
   });
 }
@@ -25,25 +26,44 @@ function removeFromQueue(socketId) {
   textQueue.delete(socketId);
 }
 
+function genderMatches(user, candidate) {
+  // If neither has a preference, always match
+  if (user.genderPreference === 'any' && candidate.genderPreference === 'any') return true;
+
+  // Check user's preference against candidate's gender
+  const userWants = user.genderPreference === 'any' || user.genderPreference === candidate.gender;
+  // Check candidate's preference against user's gender
+  const candidateWants = candidate.genderPreference === 'any' || candidate.genderPreference === user.gender;
+
+  return userWants && candidateWants;
+}
+
 function findMatch(socketId, type) {
   const queue = getQueue(type);
   const user = queue.get(socketId);
   if (!user) return null;
 
-  const now = Date.now();
-  const waitedLongEnough = now - user.joinedAt >= INTEREST_MATCH_TIMEOUT_MS;
-
   let bestMatch = null;
-  let bestScore = 0;
+  let bestScore = -1;
 
   for (const [candidateId, candidate] of queue) {
     if (candidateId === socketId) continue;
 
-    // Calculate interest overlap
+    // Gender filter check
+    if (!genderMatches(user, candidate)) continue;
+
+    // Calculate score
+    let score = 0;
+
+    // Interest overlap
     const sharedInterests = user.interests.filter((i) =>
       candidate.interests.includes(i)
     );
-    const score = sharedInterests.length;
+    score += sharedInterests.length * 10;
+
+    // Premium users get priority
+    if (candidate.isPremium) score += 5;
+    if (user.isPremium) score += 5;
 
     if (score > bestScore) {
       bestScore = score;
@@ -51,15 +71,18 @@ function findMatch(socketId, type) {
     }
   }
 
-  // If we found an interest match, use it
-  if (bestMatch && bestScore > 0) {
+  // Found a scored match
+  if (bestMatch !== null) {
     return pairUsers(socketId, bestMatch, type, queue);
   }
 
-  // No interest match — match with anyone available instantly
-  for (const [candidateId] of queue) {
-    if (candidateId === socketId) continue;
-    return pairUsers(socketId, candidateId, type, queue);
+  // Fallback: match with anyone (ignore gender preference if waited > 15s)
+  const waitedLong = Date.now() - user.joinedAt > 15000;
+  if (waitedLong) {
+    for (const [candidateId] of queue) {
+      if (candidateId === socketId) continue;
+      return pairUsers(socketId, candidateId, type, queue);
+    }
   }
 
   return null;
