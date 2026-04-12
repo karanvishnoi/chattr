@@ -289,11 +289,11 @@ io.on('connection', (socket) => {
   });
 });
 
-// Periodic match attempt for queued users (every 2 seconds)
+// Periodic match attempt for queued users (every 10 seconds as fallback)
 setInterval(() => {
   tryMatchQueue('video');
   tryMatchQueue('text');
-}, 2000);
+}, 10000);
 
 // SPA catch-all (production, only if dist exists)
 if (config.NODE_ENV === 'production' && fs.existsSync(clientDist)) {
