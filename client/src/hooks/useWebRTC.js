@@ -5,7 +5,6 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    // Free TURN servers for NAT traversal (mobile networks, firewalls)
     {
       urls: 'turn:openrelay.metered.ca:80',
       username: 'openrelayproject',
@@ -34,12 +33,13 @@ export default function useWebRTC(isInitiator, partnerId, status) {
   const remoteVideoRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+  const pendingOfferRef = useRef(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
   const [mediaError, setMediaError] = useState(null);
 
-  // Get local media stream
   const startLocalStream = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia(MEDIA_CONSTRAINTS);
@@ -60,93 +60,111 @@ export default function useWebRTC(isInitiator, partnerId, status) {
     }
   }, []);
 
-  // Create peer connection
-  const createPeerConnection = useCallback((stream) => {
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    peerConnectionRef.current = pc;
-
-    // Add local tracks
-    if (stream) {
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
-    }
-
-    // Handle remote tracks
-    pc.ontrack = (event) => {
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    // ICE candidates
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice_candidate', { candidate: event.candidate });
-      }
-    };
-
-    // Connection state
-    pc.onconnectionstatechange = () => {
-      setConnectionState(pc.connectionState);
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
-        setConnectionState('disconnected');
-      }
-    };
-
-    return pc;
-  }, []);
-
   // Setup WebRTC when matched
   useEffect(() => {
     if (status !== 'connected' || !partnerId) return;
 
-    let pc;
+    // Reset buffers
+    pendingCandidatesRef.current = [];
+    pendingOfferRef.current = null;
 
     async function setup() {
       const stream = localStreamRef.current || (await startLocalStream());
       if (!stream) return;
 
-      pc = createPeerConnection(stream);
+      // Create peer connection
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      peerConnectionRef.current = pc;
 
+      // Add local tracks
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      // Handle remote tracks
+      pc.ontrack = (event) => {
+        if (remoteVideoRef.current && event.streams[0]) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+        }
+      };
+
+      // Send ICE candidates to partner
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('ice_candidate', { candidate: event.candidate });
+        }
+      };
+
+      // Connection state tracking
+      pc.onconnectionstatechange = () => {
+        setConnectionState(pc.connectionState);
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          setConnectionState('disconnected');
+        } else if (pc.iceConnectionState === 'connected') {
+          setConnectionState('connected');
+        }
+      };
+
+      // Apply any buffered offer that arrived before PC was ready
+      if (pendingOfferRef.current) {
+        const offer = pendingOfferRef.current;
+        pendingOfferRef.current = null;
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { answer });
+      }
+
+      // Apply any buffered ICE candidates
+      for (const candidate of pendingCandidatesRef.current) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+      }
+      pendingCandidatesRef.current = [];
+
+      // Initiator creates the offer
       if (isInitiator) {
-        // Create and send offer
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('webrtc_offer', { offer });
       }
     }
 
-    // Handle incoming offer (for non-initiator)
+    // Handle incoming offer
     function onOffer({ offer }) {
-      if (!peerConnectionRef.current) return;
-      peerConnectionRef.current
-        .setRemoteDescription(new RTCSessionDescription(offer))
-        .then(() => peerConnectionRef.current.createAnswer())
+      const pc = peerConnectionRef.current;
+      if (!pc) {
+        // PC not ready yet — buffer the offer
+        pendingOfferRef.current = offer;
+        return;
+      }
+      pc.setRemoteDescription(new RTCSessionDescription(offer))
+        .then(() => pc.createAnswer())
         .then((answer) => {
-          peerConnectionRef.current.setLocalDescription(answer);
+          pc.setLocalDescription(answer);
           socket.emit('webrtc_answer', { answer });
         })
         .catch(console.error);
     }
 
-    // Handle incoming answer (for initiator)
+    // Handle incoming answer
     function onAnswer({ answer }) {
-      if (!peerConnectionRef.current) return;
-      peerConnectionRef.current
-        .setRemoteDescription(new RTCSessionDescription(answer))
-        .catch(console.error);
+      const pc = peerConnectionRef.current;
+      if (!pc) return;
+      pc.setRemoteDescription(new RTCSessionDescription(answer)).catch(console.error);
     }
 
     // Handle ICE candidates
     function onIceCandidate({ candidate }) {
-      if (!peerConnectionRef.current) return;
-      peerConnectionRef.current
-        .addIceCandidate(new RTCIceCandidate(candidate))
-        .catch(console.error);
+      const pc = peerConnectionRef.current;
+      if (!pc || !pc.remoteDescription) {
+        // Buffer candidates until PC and remote description are ready
+        pendingCandidatesRef.current.push(candidate);
+        return;
+      }
+      pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
     }
 
     socket.on('webrtc_offer', onOffer);
@@ -160,7 +178,7 @@ export default function useWebRTC(isInitiator, partnerId, status) {
       socket.off('webrtc_answer', onAnswer);
       socket.off('ice_candidate', onIceCandidate);
     };
-  }, [status, partnerId, isInitiator, startLocalStream, createPeerConnection]);
+  }, [status, partnerId, isInitiator, startLocalStream]);
 
   // Cleanup on disconnect/next
   useEffect(() => {
@@ -172,11 +190,12 @@ export default function useWebRTC(isInitiator, partnerId, status) {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = null;
       }
+      pendingCandidatesRef.current = [];
+      pendingOfferRef.current = null;
       setConnectionState('new');
     }
   }, [status]);
 
-  // Toggle mute
   const toggleMute = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach((track) => {
@@ -186,7 +205,6 @@ export default function useWebRTC(isInitiator, partnerId, status) {
     }
   }, []);
 
-  // Toggle camera
   const toggleCamera = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getVideoTracks().forEach((track) => {
@@ -196,22 +214,17 @@ export default function useWebRTC(isInitiator, partnerId, status) {
     }
   }, []);
 
-  // Stop all tracks (cleanup)
   const stopLocalStream = useCallback(() => {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = null;
-    }
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = null;
-    }
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   }, []);
 
   return {
