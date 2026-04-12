@@ -19,14 +19,7 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.some((allowed) => origin.startsWith(allowed) || origin.includes('vercel.app'))) {
-      return callback(null, true);
-    }
-    callback(null, true); // Allow all origins for now (production: restrict this)
-  },
+  origin: true,
   methods: ['GET', 'POST'],
   credentials: true,
 };
