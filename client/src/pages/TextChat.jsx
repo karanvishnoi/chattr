@@ -70,7 +70,7 @@ export default function TextChat() {
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto p-4 relative">
-        {status !== 'connected' && <StatusOverlay status={status} />}
+        {status !== 'connected' && <StatusOverlay status={status} onNext={handleNext} />}
 
         <div className="flex-1">
           <ChatBox status={status} />

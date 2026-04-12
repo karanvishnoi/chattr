@@ -7,6 +7,7 @@ export default function useMatchmaker(type) {
   const [partnerId, setPartnerId] = useState(null);
   const [isInitiator, setIsInitiator] = useState(false);
   const interestsRef = useRef([]);
+  const autoRequeueRef = useRef(null);
 
   useEffect(() => {
     function onMatched(data) {
@@ -21,6 +22,12 @@ export default function useMatchmaker(type) {
       setRoomId(null);
       setPartnerId(null);
       setIsInitiator(false);
+
+      // Auto-requeue after 2 seconds
+      autoRequeueRef.current = setTimeout(() => {
+        setStatus('searching');
+        socket.emit('join_queue', { type, interests: interestsRef.current });
+      }, 2000);
     }
 
     function onBanned({ message }) {
@@ -36,11 +43,13 @@ export default function useMatchmaker(type) {
       socket.off('matched', onMatched);
       socket.off('partner_left', onPartnerLeft);
       socket.off('banned', onBanned);
+      clearTimeout(autoRequeueRef.current);
     };
-  }, []);
+  }, [type]);
 
   const joinQueue = useCallback((interests = []) => {
     interestsRef.current = interests;
+    clearTimeout(autoRequeueRef.current);
     setStatus('searching');
     setRoomId(null);
     setPartnerId(null);
@@ -48,11 +57,13 @@ export default function useMatchmaker(type) {
   }, [type]);
 
   const leaveQueue = useCallback(() => {
+    clearTimeout(autoRequeueRef.current);
     setStatus('idle');
     socket.emit('leave_queue');
   }, []);
 
   const next = useCallback(() => {
+    clearTimeout(autoRequeueRef.current);
     setStatus('searching');
     setRoomId(null);
     setPartnerId(null);
@@ -61,6 +72,7 @@ export default function useMatchmaker(type) {
   }, [type]);
 
   const stop = useCallback(() => {
+    clearTimeout(autoRequeueRef.current);
     setStatus('idle');
     setRoomId(null);
     setPartnerId(null);

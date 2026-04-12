@@ -119,7 +119,7 @@ export default function VideoChat() {
 
           {/* Status overlay */}
           {status !== 'connected' && !mediaError && (
-            <StatusOverlay status={status} />
+            <StatusOverlay status={status} onNext={handleNext} />
           )}
 
           {/* Video panel */}
