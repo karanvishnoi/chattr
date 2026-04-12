@@ -34,9 +34,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-// Serve static client build in production
-if (config.NODE_ENV === 'production') {
-  const clientDist = path.join(__dirname, '../client/dist');
+// Serve static client build in production (only if dist exists)
+const fs = require('fs');
+const clientDist = path.join(__dirname, '../client/dist');
+if (config.NODE_ENV === 'production' && fs.existsSync(clientDist)) {
   app.use(express.static(clientDist));
 }
 
@@ -289,10 +290,10 @@ setInterval(() => {
   tryMatchQueue('text');
 }, 2000);
 
-// SPA catch-all (production)
-if (config.NODE_ENV === 'production') {
+// SPA catch-all (production, only if dist exists)
+if (config.NODE_ENV === 'production' && fs.existsSync(clientDist)) {
   app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+    res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
 
