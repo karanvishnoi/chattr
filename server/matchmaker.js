@@ -56,13 +56,10 @@ function findMatch(socketId, type) {
     return pairUsers(socketId, bestMatch, type, queue);
   }
 
-  // If waited long enough, match with anyone
-  if (waitedLongEnough) {
-    for (const [candidateId] of queue) {
-      if (candidateId === socketId) continue;
-      // Pick the one who's been waiting longest (first in Map insertion order)
-      return pairUsers(socketId, candidateId, type, queue);
-    }
+  // No interest match — match with anyone available instantly
+  for (const [candidateId] of queue) {
+    if (candidateId === socketId) continue;
+    return pairUsers(socketId, candidateId, type, queue);
   }
 
   return null;
