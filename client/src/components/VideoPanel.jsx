@@ -1,12 +1,12 @@
 export default function VideoPanel({ localVideoRef, remoteVideoRef, connectionState }) {
   return (
-    <div className="relative w-full h-full bg-dark rounded-2xl overflow-hidden">
-      {/* Remote video — full screen */}
+    <div className="relative w-full h-full bg-dark-card rounded-2xl overflow-hidden flex items-center justify-center">
+      {/* Remote video — centered, no stretch */}
       <video
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className="w-full h-full object-cover"
+        className="w-full h-full object-contain bg-black"
       />
 
       {/* No remote video placeholder */}
@@ -32,20 +32,20 @@ export default function VideoPanel({ localVideoRef, remoteVideoRef, connectionSt
       )}
 
       {/* Local video — bottom right corner */}
-      <div className="absolute bottom-4 right-4 w-40 h-30 md:w-48 md:h-36 rounded-xl overflow-hidden border-2 border-dark-border shadow-2xl">
+      <div className="absolute bottom-3 right-3 w-28 h-20 sm:w-36 sm:h-28 md:w-44 md:h-32 rounded-xl overflow-hidden border-2 border-dark-border/50 shadow-2xl z-10">
         <video
           ref={localVideoRef}
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover mirror"
+          className="w-full h-full object-cover"
           style={{ transform: 'scaleX(-1)' }}
         />
       </div>
 
       {/* Connection quality indicator */}
-      <div className="absolute top-4 left-4">
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+      <div className="absolute top-3 left-3 z-10">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium backdrop-blur-sm ${
           connectionState === 'connected'
             ? 'bg-success/20 text-success'
             : connectionState === 'connecting'
