@@ -143,6 +143,14 @@ io.on('connection', (socket) => {
 
   socket.on('leave_queue', () => {
     matchmaker.removeFromQueue(socket.id);
+    // Also leave any active room and notify partner
+    const partnerId = rooms.removeUserFromRoom(socket.id);
+    if (partnerId) {
+      io.to(partnerId).emit('partner_left');
+    }
+    for (const room of socket.rooms) {
+      if (room !== socket.id) socket.leave(room);
+    }
   });
 
   socket.on('next', ({ type, interests }) => {
