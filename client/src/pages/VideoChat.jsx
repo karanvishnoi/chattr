@@ -142,11 +142,11 @@ export default function VideoChat() {
         <div className={`relative bg-dark md:w-[42%] lg:w-[38%] md:p-3 ${
           (!hasStarted || showMobileChat) ? 'hidden md:block' : 'flex-1'
         }`}>
-          {/* DESKTOP: stacked with aspect ratio */}
-          <div className="hidden md:flex flex-col gap-3 h-full justify-center">
+          {/* DESKTOP: stacked, equal height panels, object-contain preserves aspect ratio */}
+          <div className="hidden md:flex flex-col gap-3 h-full">
             {/* Remote */}
-            <div className="relative bg-dark-card rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '4/3' }}>
-              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border flex-1 min-h-0">
+              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
               {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
               <div className="absolute bottom-2 left-2 text-[10px] font-bold text-white/50 tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>chattr</div>
               <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-dark/70 hover:bg-danger/80 text-white/80 hover:text-white backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center">
@@ -154,8 +154,8 @@ export default function VideoChat() {
               </button>
             </div>
             {/* Local */}
-            <div className="relative bg-dark-card rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '4/3' }}>
-              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover bg-black" style={{ transform: 'scaleX(-1)' }} />
+            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border flex-1 min-h-0">
+              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-contain" style={{ transform: 'scaleX(-1)' }} />
               {isCameraOff && (
                 <div className="absolute inset-0 flex items-center justify-center bg-dark-card">
                   <div className="text-3xl opacity-50">🎥</div>
@@ -189,8 +189,8 @@ export default function VideoChat() {
           </div>
 
           {/* MOBILE: remote fullscreen + PIP local */}
-          <div className="md:hidden h-full relative">
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+          <div className="md:hidden h-full relative bg-black">
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-contain" />
             {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
 
             <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-dark/70 hover:bg-danger/80 text-white/90 backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
