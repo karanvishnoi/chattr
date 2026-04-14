@@ -45,17 +45,13 @@ export default function VideoChat() {
   } = useWebRTC(isInitiator, partnerId, status);
 
   const [showReport, setShowReport] = useState(false);
-  const [showMobileChat, setShowMobileChat] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [showDeviceMenu, setShowDeviceMenu] = useState(false);
   const [myCountry, setMyCountry] = useState(null);
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
-  // Only cleanup on unmount (camera started when user clicks Start)
-  useEffect(() => {
-    return () => stopLocalStream();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => stopLocalStream(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch('https://ipapi.co/json/')
@@ -74,7 +70,7 @@ export default function VideoChat() {
 
   async function handleStart() {
     const stream = await startLocalStream();
-    if (!stream) return; // media error will show
+    if (!stream) return;
     setHasStarted(true);
     joinQueue(interests);
   }
@@ -87,7 +83,7 @@ export default function VideoChat() {
     searching: 'Looking for someone new...',
     connected: "You're now chatting with someone new",
     disconnected: 'Stranger disconnected. Finding next...',
-    idle: "Welcome — read the rules and press Start",
+    idle: "Press Start to begin",
   }[status];
 
   if (mediaError) {
@@ -110,181 +106,135 @@ export default function VideoChat() {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-dark overflow-hidden relative">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-dark-border shrink-0 z-10">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 cursor-pointer">
-          <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">C</span>
-          </div>
-          <span className="text-lg font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
-            Chatt<span className="text-accent">r</span>
-          </span>
-        </button>
-        <div className="flex items-center gap-2 md:gap-3">
-          {hasStarted && (
-            <button
-              onClick={() => setShowMobileChat(!showMobileChat)}
-              className="md:hidden text-xs bg-dark-card border border-dark-border px-3 py-1.5 rounded-full cursor-pointer"
-            >
-              {showMobileChat ? 'Video' : 'Chat'}
-            </button>
-          )}
-          <div className="flex items-center gap-1.5 text-xs md:text-sm text-text-secondary">
-            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-            <span className="font-semibold text-text-primary">{onlineCount.toLocaleString()}+</span>
-            <span className="hidden sm:inline">online</span>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
+      <Header navigate={navigate} onlineCount={onlineCount} />
 
-      {/* MAIN (always rendered so video refs stay mounted) */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-        {/* ============ VIDEO COLUMN ============ */}
-        <div className={`relative bg-dark md:w-[36%] lg:w-[32%] md:p-3 ${
-          (!hasStarted || showMobileChat) ? 'hidden md:block' : 'flex-1'
-        }`}>
-          {/* DESKTOP: stacked with 16:9 aspect + blurred bg for portrait videos */}
-          <div className="hidden md:flex flex-col gap-3 h-full justify-center">
-            {/* Remote */}
-            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
-              {/* Blurred background (shows same video blurred to fill) */}
-              <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" />
-              {/* Actual video centered */}
-              <video ref={remoteVideoRef} autoPlay playsInline className="relative w-full h-full object-contain" />
-              {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
-              <div className="absolute bottom-2 left-2 text-[10px] font-bold text-white/50 tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>chattr</div>
-              <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-dark/70 hover:bg-danger/80 text-white/80 hover:text-white backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
-              </button>
-            </div>
-            {/* Local */}
-            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
-              <video ref={localVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" style={{ transform: 'scaleX(-1)' }} />
-              <video ref={localVideoRef} autoPlay playsInline muted className="relative w-full h-full object-contain" style={{ transform: 'scaleX(-1)' }} />
-              {isCameraOff && (
-                <div className="absolute inset-0 flex items-center justify-center bg-dark-card">
-                  <div className="text-3xl opacity-50">🎥</div>
-                </div>
-              )}
-              <div className="absolute top-2 left-2 text-[10px] font-medium bg-dark/80 text-white px-2 py-1 rounded backdrop-blur-sm">
-                You {myCountry?.flag}
-              </div>
-              <button
-                onClick={() => setShowDeviceMenu(!showDeviceMenu)}
-                className="absolute top-2 right-2 text-[10px] font-medium bg-dark/80 hover:bg-dark text-white px-2 py-1 rounded backdrop-blur-sm cursor-pointer transition-colors"
-              >
-                Flip Camera ⚙
-              </button>
-              {showDeviceMenu && (
-                <DeviceMenu
-                  close={() => setShowDeviceMenu(false)}
-                  videoDevices={videoDevices}
-                  audioDevices={audioDevices}
-                  currentVideoId={currentVideoId}
-                  currentAudioId={currentAudioId}
-                  switchVideoDevice={switchVideoDevice}
-                  switchAudioDevice={switchAudioDevice}
-                />
-              )}
-              <div className="absolute bottom-2 right-2 flex gap-1.5">
-                <MuteButton isMuted={isMuted} toggle={toggleMute} />
-                <CameraButton isCameraOff={isCameraOff} toggle={toggleCamera} />
-              </div>
-            </div>
-          </div>
-
-          {/* MOBILE: remote fullscreen + PIP local */}
-          <div className="md:hidden h-full relative bg-black">
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+      {/* ============ DESKTOP LAYOUT ============ */}
+      <div className="flex-1 hidden md:flex overflow-hidden min-h-0">
+        {/* LEFT: videos stacked */}
+        <div className="w-[36%] lg:w-[32%] p-3 flex flex-col gap-3 justify-center">
+          <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
+            <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" />
+            <video ref={remoteVideoRef} autoPlay playsInline className="relative w-full h-full object-contain" />
             {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
-
-            <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-dark/70 hover:bg-danger/80 text-white/90 backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <div className="absolute bottom-2 left-2 text-[10px] font-bold text-white/50 tracking-wide z-10" style={{ fontFamily: 'var(--font-display)' }}>chattr</div>
+            <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-dark/70 hover:bg-danger/80 text-white/80 hover:text-white backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
             </button>
-
-            <div className="absolute bottom-3 left-3 text-xs font-bold text-white/60 tracking-wide z-10" style={{ fontFamily: 'var(--font-display)' }}>chattr</div>
-
-            {/* PIP local video - MUST use localVideoRef only once */}
-            <div className="absolute bottom-3 right-3 w-28 h-36 rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl z-10 bg-dark-card">
-              <video
-                ref={localVideoRef}
-                autoPlay playsInline muted
-                className="w-full h-full object-cover bg-black"
-                style={{ transform: 'scaleX(-1)' }}
-              />
-              {isCameraOff && (
-                <div className="absolute inset-0 flex items-center justify-center bg-dark-card">
-                  <div className="text-2xl opacity-50">🎥</div>
-                </div>
-              )}
-              <div className="absolute top-1 left-1 text-[9px] font-medium bg-dark/80 text-white px-1.5 py-0.5 rounded">
-                You {myCountry?.flag}
-              </div>
+          </div>
+          <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
+            <video ref={localVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" style={{ transform: 'scaleX(-1)' }} />
+            <video ref={localVideoRef} autoPlay playsInline muted className="relative w-full h-full object-contain" style={{ transform: 'scaleX(-1)' }} />
+            {isCameraOff && <div className="absolute inset-0 flex items-center justify-center bg-dark-card z-10"><div className="text-3xl opacity-50">🎥</div></div>}
+            <div className="absolute top-2 left-2 text-[10px] font-medium bg-dark/80 text-white px-2 py-1 rounded backdrop-blur-sm z-10">
+              You {myCountry?.flag}
             </div>
-
-            <div className="absolute bottom-3 left-3 flex gap-2 z-10" style={{ marginLeft: '60px' }}>
-              <MuteButton isMuted={isMuted} toggle={toggleMute} size="mobile" />
-              <CameraButton isCameraOff={isCameraOff} toggle={toggleCamera} size="mobile" />
+            <button onClick={() => setShowDeviceMenu(!showDeviceMenu)} className="absolute top-2 right-2 text-[10px] font-medium bg-dark/80 hover:bg-dark text-white px-2 py-1 rounded backdrop-blur-sm cursor-pointer transition-colors z-10">
+              Flip Camera ⚙
+            </button>
+            {showDeviceMenu && <DeviceMenu close={() => setShowDeviceMenu(false)} videoDevices={videoDevices} audioDevices={audioDevices} currentVideoId={currentVideoId} currentAudioId={currentAudioId} switchVideoDevice={switchVideoDevice} switchAudioDevice={switchAudioDevice} />}
+            <div className="absolute bottom-2 right-2 flex gap-1.5 z-10">
+              <MuteButton isMuted={isMuted} toggle={toggleMute} />
+              <CameraButton isCameraOff={isCameraOff} toggle={toggleCamera} />
             </div>
           </div>
         </div>
 
-        {/* ============ CHAT COLUMN ============ */}
-        <div className={`flex-1 flex flex-col border-l border-dark-border min-h-0 ${
-          (!hasStarted) ? 'hidden' : (showMobileChat ? 'flex' : 'hidden md:flex')
-        }`}>
-          <div className="px-4 py-3 border-b border-dark-border shrink-0">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                {status === 'connected' && <span>✨</span>}
-                <p className="text-sm font-semibold">{statusMessage}</p>
-              </div>
-              {status === 'connected' && myCountry && (
-                <div className="flex items-center gap-1.5 text-xs text-text-secondary">
-                  <span>{myCountry.flag}</span>
-                  <span>{myCountry.name}</span>
-                </div>
-              )}
-              {status === 'connected' && (
-                <p className="text-xs text-accent-light font-medium mt-0.5">
-                  See something wrong? Use the 🚩 flag to report it instantly.
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <ChatBox status={status} compact />
-          </div>
+        {/* RIGHT: chat / welcome */}
+        <div className="flex-1 flex flex-col border-l border-dark-border min-h-0">
+          {!hasStarted ? (
+            <WelcomeScreen type="video" serverStatus={isConnected ? 'ready' : 'connecting'} onStart={handleStart} />
+          ) : (
+            <>
+              <ChatStatusBar status={status} statusMessage={statusMessage} myCountry={myCountry} />
+              <div className="flex-1 overflow-hidden"><ChatBox status={status} compact /></div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Bottom Stop button */}
+      {/* Desktop Stop button */}
       {hasStarted && (
-        <div className="border-t border-dark-border px-4 py-3 flex items-center justify-center shrink-0">
-          <button
-            onClick={handleNext}
-            className="px-12 py-2 bg-dark-card border border-dark-border rounded-xl hover:border-accent hover:bg-accent/5 transition-all cursor-pointer text-center"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
+        <div className="hidden md:flex border-t border-dark-border px-4 py-3 items-center justify-center shrink-0">
+          <button onClick={handleNext} className="px-12 py-2 bg-dark-card border border-dark-border rounded-xl hover:border-accent hover:bg-accent/5 transition-all cursor-pointer text-center" style={{ fontFamily: 'var(--font-display)' }}>
             <div className="text-xl font-bold">{status === 'connected' ? 'Really?' : 'Stop'}</div>
             <div className="text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</div>
           </button>
         </div>
       )}
 
-      {/* Welcome screen overlay — shown BEFORE user clicks Start */}
-      {!hasStarted && (
-        <div className="absolute inset-0 z-20 bg-dark/95 backdrop-blur-sm flex items-center justify-center p-4" style={{ top: '65px' }}>
-          <div className="w-full max-w-md bg-dark-card border border-dark-border rounded-2xl shadow-xl">
-            <WelcomeScreen
-              type="video"
-              serverStatus={isConnected ? 'ready' : 'connecting'}
-              onStart={handleStart}
-            />
+      {/* ============ MOBILE LAYOUT (Umingle-style) ============ */}
+      <div className="flex-1 md:hidden flex flex-col overflow-hidden min-h-0">
+        {/* Video area (compact, ~35% of screen) */}
+        <div className="relative bg-dark-card mx-3 mt-3 rounded-xl overflow-hidden border border-dark-border" style={{ height: '35vh', minHeight: '200px' }}>
+          <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" />
+          <video ref={remoteVideoRef} autoPlay playsInline className="relative w-full h-full object-contain bg-black" />
+          {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
+
+          {/* Watermark */}
+          <div className="absolute bottom-2 left-3 text-xs font-bold text-accent/60 tracking-wide z-10" style={{ fontFamily: 'var(--font-display)' }}>chattr<span className="text-white/50">.com</span></div>
+
+          {/* Report button */}
+          <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute bottom-2 right-2 w-7 h-7 rounded bg-dark/70 hover:bg-danger/80 text-white/80 backdrop-blur-sm disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+          </button>
+
+          {/* Local PIP (top right) */}
+          <div className="absolute top-2 right-2 w-20 h-24 rounded-lg overflow-hidden border-2 border-white/20 shadow-lg z-10 bg-dark-card">
+            <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+            {isCameraOff && <div className="absolute inset-0 flex items-center justify-center bg-dark-card"><div className="text-lg opacity-50">🎥</div></div>}
           </div>
+
+          {/* Quick controls bottom-left of video */}
+          {hasStarted && (
+            <div className="absolute bottom-2 left-20 flex gap-1.5 z-10">
+              <MuteButton isMuted={isMuted} toggle={toggleMute} size="mobile-compact" />
+              <CameraButton isCameraOff={isCameraOff} toggle={toggleCamera} size="mobile-compact" />
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Welcome rules / Chat messages area */}
+        <div className="flex-1 flex flex-col mx-3 mt-3 bg-dark-card rounded-xl border border-dark-border overflow-hidden min-h-0">
+          {!hasStarted ? (
+            <MobileWelcome />
+          ) : (
+            <>
+              <ChatStatusBar status={status} statusMessage={statusMessage} myCountry={myCountry} />
+              <div className="flex-1 overflow-hidden">
+                <ChatBox status={status} compact />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Bottom row: Start/Stop button + message bar */}
+        {!hasStarted && (
+          <div className="mx-3 my-3 flex gap-2">
+            <button
+              onClick={handleStart}
+              className="px-8 py-3 bg-accent text-white font-bold text-lg rounded-xl hover:bg-accent-hover transition-all cursor-pointer shadow-lg shadow-accent/30"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Start
+            </button>
+            <div className="flex-1 flex items-center px-4 bg-dark-card border border-dark-border rounded-xl text-sm text-text-secondary">
+              Press Start to chat
+            </div>
+          </div>
+        )}
+        {hasStarted && (
+          <div className="mx-3 my-3 flex">
+            <button
+              onClick={handleNext}
+              className="flex-1 py-3 bg-dark-card border border-dark-border rounded-xl hover:border-accent transition-all cursor-pointer text-center"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              <span className="text-base font-bold">{status === 'connected' ? 'Really?' : 'Stop'}</span>
+              <span className="ml-2 text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
     </div>
@@ -293,29 +243,72 @@ export default function VideoChat() {
 
 function Header({ navigate, onlineCount }) {
   return (
-    <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-dark-border shrink-0">
+    <header className="flex items-center justify-between px-4 py-3 border-b border-dark-border shrink-0 bg-dark">
       <button onClick={() => navigate('/')} className="flex items-center gap-2 cursor-pointer">
-        <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-sm">C</span>
+        <div className="w-9 h-9 bg-accent rounded-xl flex items-center justify-center shadow-lg shadow-accent/20">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
         </div>
-        <span className="text-lg font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
+        <span className="text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
           Chatt<span className="text-accent">r</span>
         </span>
       </button>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-sm text-text-secondary">
-          <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-          <span className="font-semibold text-text-primary">{onlineCount.toLocaleString()}+</span> online
-        </div>
+      <div className="flex items-center gap-2">
         <ThemeToggle />
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/15 border border-accent/30 rounded-full">
+          <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+          <span className="text-sm font-bold text-accent">{onlineCount.toLocaleString()}+</span>
+        </div>
       </div>
     </header>
   );
 }
 
+function MobileWelcome() {
+  return (
+    <div className="p-4 overflow-y-auto">
+      <p className="text-base font-bold mb-2" style={{ fontFamily: 'var(--font-display)' }}>Welcome to Chattr.</p>
+      <div className="flex items-center gap-2 text-accent font-semibold mb-2">
+        <span className="text-lg">🔞</span>
+        <span className="text-sm">You must be 18+</span>
+      </div>
+      <ul className="space-y-1.5 text-sm text-text-secondary">
+        <li>• No nudity, hate speech, or harassment</li>
+        <li>• Your webcam must show you, live</li>
+        <li>• Do not ask for personal info or gender</li>
+        <li>• This is not a dating site</li>
+        <li>• Violators will be banned permanently</li>
+      </ul>
+    </div>
+  );
+}
+
+function ChatStatusBar({ status, statusMessage, myCountry }) {
+  return (
+    <div className="px-3 py-2 border-b border-dark-border shrink-0">
+      <div className="flex items-center gap-2">
+        {status === 'connected' && <span className="text-xs">✨</span>}
+        <p className="text-xs font-semibold">{statusMessage}</p>
+      </div>
+      {status === 'connected' && myCountry && (
+        <div className="flex items-center gap-1 text-[10px] text-text-secondary mt-0.5">
+          <span>{myCountry.flag}</span>
+          <span>{myCountry.name}</span>
+        </div>
+      )}
+      {status === 'connected' && (
+        <p className="text-[10px] text-accent-light font-medium mt-0.5">
+          See something wrong? Use the 🚩 to report.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function VideoPlaceholder({ status }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-dark-card pointer-events-none">
+    <div className="absolute inset-0 flex items-center justify-center bg-dark-card z-10 pointer-events-none">
       {status === 'searching' ? (
         <div className="text-center">
           <div className="w-10 h-10 border-4 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-3" />
@@ -323,7 +316,7 @@ function VideoPlaceholder({ status }) {
         </div>
       ) : (
         <div className="text-center text-text-secondary">
-          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-2 opacity-30">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-2 opacity-30">
             <path d="M23 7l-7 5 7 5V7z" />
             <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
           </svg>
@@ -341,26 +334,14 @@ function DeviceMenu({ close, videoDevices, audioDevices, currentVideoId, current
       <div className="absolute top-10 right-2 z-30 bg-dark-card border border-dark-border rounded-lg shadow-xl p-3 min-w-[220px] animate-fade-in">
         <div className="mb-3">
           <p className="text-[10px] uppercase tracking-wider text-text-secondary mb-1">Camera</p>
-          <select
-            value={currentVideoId}
-            onChange={(e) => { switchVideoDevice(e.target.value); close(); }}
-            className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer"
-          >
-            {videoDevices.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${d.deviceId.slice(0, 6)}`}</option>
-            ))}
+          <select value={currentVideoId} onChange={(e) => { switchVideoDevice(e.target.value); close(); }} className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer">
+            {videoDevices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Camera ${d.deviceId.slice(0, 6)}`}</option>)}
           </select>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-text-secondary mb-1">Microphone</p>
-          <select
-            value={currentAudioId}
-            onChange={(e) => { switchAudioDevice(e.target.value); close(); }}
-            className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer"
-          >
-            {audioDevices.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>
-            ))}
+          <select value={currentAudioId} onChange={(e) => { switchAudioDevice(e.target.value); close(); }} className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer">
+            {audioDevices.map((d) => <option key={d.deviceId} value={d.deviceId}>{d.label || `Mic ${d.deviceId.slice(0, 6)}`}</option>)}
           </select>
         </div>
       </div>
@@ -369,8 +350,8 @@ function DeviceMenu({ close, videoDevices, audioDevices, currentVideoId, current
 }
 
 function MuteButton({ isMuted, toggle, size = 'sm' }) {
-  const dim = size === 'mobile' ? 'w-9 h-9' : 'w-8 h-8';
-  const icon = size === 'mobile' ? 15 : 14;
+  const dim = size === 'mobile-compact' ? 'w-7 h-7' : 'w-8 h-8';
+  const icon = size === 'mobile-compact' ? 12 : 14;
   return (
     <button onClick={toggle} className={`${dim} rounded-full flex items-center justify-center backdrop-blur-sm transition-colors cursor-pointer ${isMuted ? 'bg-danger/80 text-white' : 'bg-dark/70 text-white hover:bg-dark'}`}>
       {isMuted ? (
@@ -383,8 +364,8 @@ function MuteButton({ isMuted, toggle, size = 'sm' }) {
 }
 
 function CameraButton({ isCameraOff, toggle, size = 'sm' }) {
-  const dim = size === 'mobile' ? 'w-9 h-9' : 'w-8 h-8';
-  const icon = size === 'mobile' ? 15 : 14;
+  const dim = size === 'mobile-compact' ? 'w-7 h-7' : 'w-8 h-8';
+  const icon = size === 'mobile-compact' ? 12 : 14;
   return (
     <button onClick={toggle} className={`${dim} rounded-full flex items-center justify-center backdrop-blur-sm transition-colors cursor-pointer ${isCameraOff ? 'bg-danger/80 text-white' : 'bg-dark/70 text-white hover:bg-dark'}`}>
       {isCameraOff ? (
