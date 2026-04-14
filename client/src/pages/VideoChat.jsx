@@ -204,7 +204,7 @@ export default function VideoChat() {
               <video
                 ref={localVideoRef}
                 autoPlay playsInline muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover bg-black"
                 style={{ transform: 'scaleX(-1)' }}
               />
               {isCameraOff && (
