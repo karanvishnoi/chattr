@@ -6,6 +6,7 @@ import useSocket from '../hooks/useSocket';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import ReportModal from '../components/ReportModal';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function VideoChat() {
   const navigate = useNavigate();
@@ -84,6 +85,7 @@ export default function VideoChat() {
             <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
             <span className="font-semibold text-text-primary">{onlineCount.toLocaleString()}+</span> online
           </div>
+          <ThemeToggle />
         </div>
       </header>
 

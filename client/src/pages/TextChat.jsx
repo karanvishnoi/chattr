@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
 import StatusOverlay from '../components/StatusOverlay';
 import ReportModal from '../components/ReportModal';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function TextChat() {
   const navigate = useNavigate();
@@ -71,6 +72,7 @@ export default function TextChat() {
             <span className="w-2 h-2 bg-success rounded-full" />
             {onlineCount} online
           </div>
+          <ThemeToggle />
         </div>
       </header>
 

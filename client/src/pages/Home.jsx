@@ -1,31 +1,22 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import useSocket from '../hooks/useSocket';
-import { useAuth } from '../context/AuthContext';
 import InterestInput from '../components/InterestInput';
 import FeatureCards from '../components/FeatureCards';
 import FAQ from '../components/FAQ';
 import Footer from '../components/Footer';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Home() {
   const navigate = useNavigate();
   const { onlineCount } = useSocket();
-  const { user, logout } = useAuth();
   const [interests, setInterests] = useState([]);
-  const [genderPref, setGenderPref] = useState('any');
 
   function startChat(type) {
-    if (!user) {
-      navigate('/signup');
-      return;
-    }
     const params = new URLSearchParams();
     if (interests.length) params.set('interests', interests.join(','));
-    if (genderPref !== 'any') params.set('genderPref', genderPref);
     navigate(`/${type}?${params.toString()}`);
   }
-
-  const isPremium = user && user.plan !== 'free';
 
   return (
     <div className="min-h-screen bg-dark relative overflow-hidden">
@@ -53,25 +44,7 @@ export default function Home() {
             <span className="font-semibold">{onlineCount.toLocaleString()}+</span>
             <span className="text-text-secondary">online</span>
           </div>
-          {user ? (
-            <>
-              <Link to="/pricing" className="text-xs md:text-sm text-accent hover:text-accent-light transition-colors font-medium">
-                {isPremium ? user.plan.toUpperCase() : 'Upgrade'}
-              </Link>
-              <button onClick={logout} className="text-xs md:text-sm text-text-secondary hover:text-white transition-colors cursor-pointer">
-                Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="text-sm text-text-secondary hover:text-white transition-colors">
-                Log In
-              </Link>
-              <Link to="/signup" className="text-sm px-4 py-1.5 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors font-medium">
-                Sign Up
-              </Link>
-            </>
-          )}
+          <ThemeToggle />
         </div>
       </header>
 
@@ -106,41 +79,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Gender filter for logged-in users */}
-            {user && (
-              <div className="mb-6 text-center">
-                <p className="text-sm text-text-secondary mb-2">Match with</p>
-                <div className="inline-flex gap-2 flex-wrap justify-center">
-                  {[
-                    { value: 'any', label: 'Anyone' },
-                    { value: 'male', label: 'Male' },
-                    { value: 'female', label: 'Female' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => {
-                        if (opt.value !== 'any' && !isPremium) {
-                          navigate('/pricing');
-                          return;
-                        }
-                        setGenderPref(opt.value);
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-sm transition-all cursor-pointer ${
-                        genderPref === opt.value
-                          ? 'bg-accent text-white'
-                          : 'bg-dark border border-dark-border text-text-secondary hover:border-accent/50'
-                      }`}
-                    >
-                      {opt.label}
-                      {opt.value !== 'any' && !isPremium && (
-                        <span className="ml-1 text-[9px] text-accent">PRO</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Interest input */}
             <div className="mb-6">
               <p className="text-sm text-text-secondary mb-2 text-center">What do you want to talk about?</p>
@@ -153,19 +91,6 @@ export default function Home() {
               <span>Chats are moderated. Please keep it respectful</span>
             </div>
           </div>
-
-          {/* Upgrade banner for free users */}
-          {user && !isPremium && (
-            <div className="mt-6 text-center">
-              <Link
-                to="/pricing"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-accent/20 to-purple-500/20 border border-accent/30 rounded-full text-sm text-accent-light hover:border-accent transition-colors"
-              >
-                Unlock gender filter, unlimited video & more
-                <span className="text-xs bg-accent text-white px-2 py-0.5 rounded-full font-semibold">PRO</span>
-              </Link>
-            </div>
-          )}
         </div>
 
         {/* Feature cards */}
