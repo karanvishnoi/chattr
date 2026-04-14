@@ -52,8 +52,8 @@ export default function VideoChat() {
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
+  // Only cleanup on unmount (camera started when user clicks Start)
   useEffect(() => {
-    startLocalStream();
     return () => stopLocalStream();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,7 +72,9 @@ export default function VideoChat() {
     return () => window.removeEventListener('keydown', onKey);
   }, [hasStarted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleStart() {
+  async function handleStart() {
+    const stream = await startLocalStream();
+    if (!stream) return; // media error will show
     setHasStarted(true);
     joinQueue(interests);
   }
