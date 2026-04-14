@@ -142,20 +142,24 @@ export default function VideoChat() {
         <div className={`relative bg-dark md:w-[36%] lg:w-[32%] md:p-3 ${
           (!hasStarted || showMobileChat) ? 'hidden md:block' : 'flex-1'
         }`}>
-          {/* DESKTOP: stacked, equal height, fills like Umingle (object-cover crops to fill) */}
-          <div className="hidden md:flex flex-col gap-3 h-full">
+          {/* DESKTOP: stacked with 16:9 aspect + blurred bg for portrait videos */}
+          <div className="hidden md:flex flex-col gap-3 h-full justify-center">
             {/* Remote */}
-            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border flex-1 min-h-0">
-              <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
+              {/* Blurred background (shows same video blurred to fill) */}
+              <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" />
+              {/* Actual video centered */}
+              <video ref={remoteVideoRef} autoPlay playsInline className="relative w-full h-full object-contain" />
               {connectionState !== 'connected' && <VideoPlaceholder status={hasStarted ? status : 'idle'} />}
               <div className="absolute bottom-2 left-2 text-[10px] font-bold text-white/50 tracking-wide" style={{ fontFamily: 'var(--font-display)' }}>chattr</div>
-              <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-dark/70 hover:bg-danger/80 text-white/80 hover:text-white backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center">
+              <button onClick={() => setShowReport(true)} disabled={status !== 'connected'} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-dark/70 hover:bg-danger/80 text-white/80 hover:text-white backdrop-blur-sm transition-colors disabled:opacity-30 cursor-pointer flex items-center justify-center z-10">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
               </button>
             </div>
             {/* Local */}
-            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border flex-1 min-h-0">
-              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+            <div className="relative bg-black rounded-xl overflow-hidden border border-dark-border" style={{ aspectRatio: '16/9' }}>
+              <video ref={localVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-40" style={{ transform: 'scaleX(-1)' }} />
+              <video ref={localVideoRef} autoPlay playsInline muted className="relative w-full h-full object-contain" style={{ transform: 'scaleX(-1)' }} />
               {isCameraOff && (
                 <div className="absolute inset-0 flex items-center justify-center bg-dark-card">
                   <div className="text-3xl opacity-50">🎥</div>
