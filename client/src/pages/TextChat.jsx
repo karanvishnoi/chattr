@@ -24,21 +24,14 @@ export default function TextChat() {
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
-  // Esc key = Stop (skip if connected, exit otherwise)
+  // Esc key = Skip/Next
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') {
-        if (status === 'connected') {
-          joinQueue(interests);
-        } else {
-          stop();
-          navigate('/');
-        }
-      }
+      if (e.key === 'Escape') joinQueue(interests);
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleStart() {
     setHasStarted(true);
@@ -125,10 +118,10 @@ export default function TextChat() {
       {hasStarted && (
         <div className="border-t border-dark-border px-4 py-3 flex items-center justify-center shrink-0">
           <button
-            onClick={status === 'connected' ? handleNext : handleStop}
+            onClick={handleNext}
             className="px-10 py-2 bg-dark-card border border-dark-border rounded-xl hover:border-accent hover:bg-accent/5 transition-all cursor-pointer text-center"
             style={{ fontFamily: 'var(--font-display)' }}
-            title={status === 'connected' ? 'Skip to next stranger' : 'Exit to home'}
+            title="Skip to next stranger"
           >
             <div className="text-xl font-bold">Stop</div>
             <div className="text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</div>
