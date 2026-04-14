@@ -24,14 +24,21 @@ export default function TextChat() {
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
-  // Esc = Stop
+  // Esc key = Stop (skip if connected, exit otherwise)
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') handleStop();
+      if (e.key === 'Escape') {
+        if (status === 'connected') {
+          joinQueue(interests);
+        } else {
+          stop();
+          navigate('/');
+        }
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleStart() {
     setHasStarted(true);
@@ -114,23 +121,17 @@ export default function TextChat() {
         )}
       </div>
 
-      {/* Bottom bar */}
+      {/* Bottom single Stop button */}
       {hasStarted && (
-        <div className="border-t border-dark-border px-4 py-3 flex items-center justify-center gap-3 shrink-0">
+        <div className="border-t border-dark-border px-4 py-3 flex items-center justify-center shrink-0">
           <button
-            onClick={handleNext}
-            className="px-6 py-2.5 bg-accent text-white font-semibold rounded-xl hover:bg-accent-hover hover:scale-[1.02] transition-all cursor-pointer"
+            onClick={status === 'connected' ? handleNext : handleStop}
+            className="px-10 py-2 bg-dark-card border border-dark-border rounded-xl hover:border-accent hover:bg-accent/5 transition-all cursor-pointer text-center"
             style={{ fontFamily: 'var(--font-display)' }}
+            title={status === 'connected' ? 'Skip to next stranger' : 'Exit to home'}
           >
-            New Chat
-          </button>
-          <button
-            onClick={handleStop}
-            className="px-6 py-2.5 bg-dark-card border border-dark-border text-text-primary font-medium rounded-xl hover:border-danger hover:text-danger transition-all cursor-pointer"
-            style={{ fontFamily: 'var(--font-display)' }}
-          >
-            Stop
-            <kbd className="hidden sm:inline-block ml-2 px-1.5 py-0.5 bg-dark text-[10px] text-text-secondary rounded border border-dark-border">Esc</kbd>
+            <div className="text-xl font-bold">Stop</div>
+            <div className="text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</div>
           </button>
         </div>
       )}
