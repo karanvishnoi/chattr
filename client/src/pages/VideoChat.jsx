@@ -110,12 +110,14 @@ export default function VideoChat() {
           </span>
         </button>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowMobileChat(!showMobileChat)}
-            className="md:hidden text-xs bg-dark-card border border-dark-border px-3 py-1.5 rounded-full cursor-pointer"
-          >
-            {showMobileChat ? 'Hide Chat' : 'Show Chat'}
-          </button>
+          {hasStarted && (
+            <button
+              onClick={() => setShowMobileChat(!showMobileChat)}
+              className="md:hidden text-xs bg-dark-card border border-dark-border px-3 py-1.5 rounded-full cursor-pointer"
+            >
+              {showMobileChat ? 'Video' : 'Chat'}
+            </button>
+          )}
           <div className="flex items-center gap-1.5 text-sm text-text-secondary">
             <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
             <span className="font-semibold text-text-primary">{onlineCount.toLocaleString()}+</span> online
@@ -145,7 +147,10 @@ export default function VideoChat() {
       {!mediaError && (
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* LEFT: Videos stacked */}
-          <div className={`flex flex-col gap-2 p-2 md:p-3 md:w-[45%] lg:w-[40%] ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
+          <div className={`flex flex-col gap-2 p-2 md:p-3 md:w-[45%] lg:w-[40%] ${
+            // On mobile: hide when showing chat, or when welcome is active (to give welcome full screen)
+            !hasStarted ? 'hidden md:flex' : (showMobileChat ? 'hidden md:flex' : 'flex')
+          }`}>
             {/* Remote video */}
             <div className="relative flex-1 bg-dark-card rounded-xl overflow-hidden border border-dark-border min-h-[180px]">
               <video
@@ -267,7 +272,10 @@ export default function VideoChat() {
           </div>
 
           {/* RIGHT: Welcome / Chat panel */}
-          <div className={`flex-1 flex flex-col border-l border-dark-border ${showMobileChat ? 'flex' : 'hidden md:flex'}`}>
+          <div className={`flex-1 flex flex-col border-l border-dark-border ${
+            // On mobile: show by default when not started; toggle when started
+            !hasStarted ? 'flex' : (showMobileChat ? 'flex' : 'hidden md:flex')
+          }`}>
             {!hasStarted ? (
               <WelcomeScreen
                 type="video"
@@ -276,17 +284,22 @@ export default function VideoChat() {
               />
             ) : (
               <>
-                <div className="px-4 py-3 border-b border-dark-border flex items-center justify-between shrink-0">
-                  <div className="flex flex-col gap-1">
+                <div className="px-4 py-3 border-b border-dark-border shrink-0">
+                  <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
-                      {status === 'connected' && <span>🫶</span>}
-                      <p className="text-sm font-medium">{statusMessage}</p>
+                      {status === 'connected' && <span>✨</span>}
+                      <p className="text-sm font-semibold">{statusMessage}</p>
                     </div>
                     {status === 'connected' && myCountry && (
                       <div className="flex items-center gap-1.5 text-xs text-text-secondary">
                         <span>{myCountry.flag}</span>
                         <span>{myCountry.name}</span>
                       </div>
+                    )}
+                    {status === 'connected' && (
+                      <p className="text-xs text-accent-light font-medium mt-1">
+                        See something wrong? Use the 🚩 flag to report it instantly.
+                      </p>
                     )}
                   </div>
                 </div>

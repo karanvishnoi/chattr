@@ -88,22 +88,27 @@ export default function TextChat() {
         ) : (
           <>
             {/* Status bar */}
-            <div className="px-4 py-3 border-b border-dark-border flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${
-                  status === 'connected' ? 'bg-success animate-pulse' :
-                  status === 'searching' ? 'bg-accent animate-pulse' :
-                  'bg-text-secondary'
-                }`} />
-                <p className="text-sm font-medium">{statusMessage}</p>
+            <div className="px-4 py-3 border-b border-dark-border shrink-0">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2">
+                    {status === 'connected' && <span>✨</span>}
+                    <p className="text-sm font-semibold">{statusMessage}</p>
+                  </div>
+                  {status === 'connected' && (
+                    <p className="text-xs text-accent-light font-medium">
+                      See something wrong? Use the 🚩 flag to report it instantly.
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowReport(true)}
+                  disabled={status !== 'connected'}
+                  className="text-xs text-text-secondary hover:text-danger transition-colors disabled:opacity-30 cursor-pointer shrink-0"
+                >
+                  🚩 Report
+                </button>
               </div>
-              <button
-                onClick={() => setShowReport(true)}
-                disabled={status !== 'connected'}
-                className="text-xs text-text-secondary hover:text-danger transition-colors disabled:opacity-30 cursor-pointer"
-              >
-                Report
-              </button>
             </div>
 
             {/* Chat */}
