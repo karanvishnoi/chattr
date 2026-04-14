@@ -34,12 +34,40 @@ const MEDIA_CONSTRAINTS = {
 };
 
 export default function useWebRTC(isInitiator, partnerId, status) {
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef(null);
+  const localVideoElsRef = useRef(new Set());
+  const remoteVideoElsRef = useRef(new Set());
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
   const pendingOfferRef = useRef(null);
+
+  // Callback refs: attach local stream to any mounted local video element
+  const localVideoRef = useCallback((el) => {
+    if (el) {
+      localVideoElsRef.current.add(el);
+      if (localStreamRef.current) el.srcObject = localStreamRef.current;
+    }
+  }, []);
+
+  const remoteVideoRef = useCallback((el) => {
+    if (el) {
+      remoteVideoElsRef.current.add(el);
+      if (remoteStreamRef.current) el.srcObject = remoteStreamRef.current;
+    }
+  }, []);
+
+  function attachLocalStreamToAll() {
+    for (const el of localVideoElsRef.current) {
+      if (el) el.srcObject = localStreamRef.current;
+    }
+  }
+
+  function attachRemoteStreamToAll() {
+    for (const el of remoteVideoElsRef.current) {
+      if (el) el.srcObject = remoteStreamRef.current;
+    }
+  }
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
@@ -75,9 +103,7 @@ export default function useWebRTC(isInitiator, partnerId, status) {
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
-      }
+      attachLocalStreamToAll();
 
       // Track current device IDs
       const vTrack = stream.getVideoTracks()[0];
@@ -136,8 +162,9 @@ export default function useWebRTC(isInitiator, partnerId, status) {
 
       // Handle remote tracks
       pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
+        if (event.streams[0]) {
+          remoteStreamRef.current = event.streams[0];
+          attachRemoteStreamToAll();
         }
       };
 
@@ -240,9 +267,8 @@ export default function useWebRTC(isInitiator, partnerId, status) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = null;
-      }
+      remoteStreamRef.current = null;
+      for (const el of remoteVideoElsRef.current) if (el) el.srcObject = null;
       pendingCandidatesRef.current = [];
       pendingOfferRef.current = null;
       setConnectionState('new');
@@ -272,12 +298,13 @@ export default function useWebRTC(isInitiator, partnerId, status) {
       localStreamRef.current.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     }
-    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    for (const el of localVideoElsRef.current) if (el) el.srcObject = null;
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    remoteStreamRef.current = null;
+    for (const el of remoteVideoElsRef.current) if (el) el.srcObject = null;
   }, []);
 
   return {
