@@ -4,32 +4,42 @@ import useMatchmaker from '../hooks/useMatchmaker';
 import useSocket from '../hooks/useSocket';
 import { useAuth } from '../context/AuthContext';
 import ChatBox from '../components/ChatBox';
-import StatusOverlay from '../components/StatusOverlay';
 import ReportModal from '../components/ReportModal';
 import ThemeToggle from '../components/ThemeToggle';
+import WelcomeScreen from '../components/WelcomeScreen';
 
 export default function TextChat() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { onlineCount } = useSocket();
+  const { onlineCount, isConnected } = useSocket();
   const { user } = useAuth();
   const genderPref = searchParams.get('genderPref') || 'any';
-  const { status, joinQueue, next, stop } = useMatchmaker('text', {
+  const { status, joinQueue, stop } = useMatchmaker('text', {
     gender: user?.gender,
     genderPreference: genderPref,
     isPremium: user?.plan !== 'free',
   });
   const [showReport, setShowReport] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
-  // Auto-join queue on mount
+  // Esc = Stop
   useEffect(() => {
-    joinQueue(interests);
+    function onKey(e) {
+      if (e.key === 'Escape') handleStop();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function handleStart() {
+    setHasStarted(true);
+    joinQueue(interests);
+  }
+
   function handleNext() {
-    next();
+    joinQueue(interests);
   }
 
   function handleStop() {
@@ -37,83 +47,93 @@ export default function TextChat() {
     navigate('/');
   }
 
+  const statusMessage = {
+    searching: 'Looking for someone new...',
+    connected: "You're now chatting with someone new",
+    disconnected: 'Stranger disconnected. Finding next...',
+    idle: 'Press Start to begin',
+  }[status];
+
   return (
-    <div className="min-h-screen flex flex-col bg-dark">
+    <div className="h-[100dvh] flex flex-col bg-dark overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-dark-border bg-dark-card/50 backdrop-blur-sm">
-        <button
-          onClick={() => navigate('/')}
-          className="text-xl font-bold tracking-tight cursor-pointer"
-        >
-          Chatt<span className="text-accent">r</span>
-        </button>
-
-        <div className="flex items-center gap-3">
-          {/* Status badge */}
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
-            status === 'connected'
-              ? 'bg-success/20 text-success'
-              : status === 'searching'
-              ? 'bg-accent/20 text-accent-light'
-              : 'bg-dark-border text-text-secondary'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${
-              status === 'connected'
-                ? 'bg-success'
-                : status === 'searching'
-                ? 'bg-accent animate-pulse'
-                : 'bg-text-secondary'
-            }`} />
-            {status === 'connected' ? 'Connected' : status === 'searching' ? 'Searching...' : 'Disconnected'}
+      <header className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-dark-border shrink-0">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 cursor-pointer">
+          <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">C</span>
           </div>
-
-          {/* Online count */}
-          <div className="hidden sm:flex items-center gap-1.5 text-xs text-text-secondary">
-            <span className="w-2 h-2 bg-success rounded-full" />
-            {onlineCount} online
+          <span className="text-lg md:text-xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-display)' }}>
+            Chatt<span className="text-accent">r</span>
+          </span>
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-sm text-text-secondary">
+            <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+            <span className="font-semibold text-text-primary">{onlineCount.toLocaleString()}+</span> online
           </div>
           <ThemeToggle />
         </div>
       </header>
 
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col max-w-3xl w-full mx-auto p-4 relative">
-        {status !== 'connected' && <StatusOverlay status={status} onNext={handleNext} />}
-
-        <div className="flex-1">
-          <ChatBox status={status} />
-        </div>
-
-        {/* Bottom controls */}
-        <div className="flex items-center justify-between mt-4">
-          <button
-            onClick={() => setShowReport(true)}
-            disabled={status !== 'connected'}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs text-text-secondary hover:text-danger border border-dark-border rounded-full hover:border-danger/50 transition-colors disabled:opacity-30 cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-              <line x1="4" y1="22" x2="4" y2="15" />
-            </svg>
-            Report
-          </button>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleNext}
-              className="px-6 py-2.5 bg-accent text-white font-medium rounded-full hover:bg-accent-hover hover:scale-[1.02] transition-all cursor-pointer"
-            >
-              New Chat →
-            </button>
-            <button
-              onClick={handleStop}
-              className="px-6 py-2.5 bg-dark-card border border-dark-border text-text-secondary font-medium rounded-full hover:text-text-primary hover:border-text-secondary transition-all cursor-pointer"
-            >
-              Stop
-            </button>
+      {/* Main */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {!hasStarted ? (
+          <div className="flex-1 max-w-3xl w-full mx-auto overflow-auto">
+            <WelcomeScreen
+              type="text"
+              serverStatus={isConnected ? 'ready' : 'connecting'}
+              onStart={handleStart}
+            />
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Status bar */}
+            <div className="px-4 py-3 border-b border-dark-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${
+                  status === 'connected' ? 'bg-success animate-pulse' :
+                  status === 'searching' ? 'bg-accent animate-pulse' :
+                  'bg-text-secondary'
+                }`} />
+                <p className="text-sm font-medium">{statusMessage}</p>
+              </div>
+              <button
+                onClick={() => setShowReport(true)}
+                disabled={status !== 'connected'}
+                className="text-xs text-text-secondary hover:text-danger transition-colors disabled:opacity-30 cursor-pointer"
+              >
+                Report
+              </button>
+            </div>
+
+            {/* Chat */}
+            <div className="flex-1 overflow-hidden max-w-3xl w-full mx-auto">
+              <ChatBox status={status} compact />
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Bottom bar */}
+      {hasStarted && (
+        <div className="border-t border-dark-border px-4 py-3 flex items-center justify-center gap-3 shrink-0">
+          <button
+            onClick={handleNext}
+            className="px-6 py-2.5 bg-accent text-white font-semibold rounded-xl hover:bg-accent-hover hover:scale-[1.02] transition-all cursor-pointer"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            New Chat
+          </button>
+          <button
+            onClick={handleStop}
+            className="px-6 py-2.5 bg-dark-card border border-dark-border text-text-primary font-medium rounded-xl hover:border-danger hover:text-danger transition-all cursor-pointer"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            Stop
+            <kbd className="hidden sm:inline-block ml-2 px-1.5 py-0.5 bg-dark text-[10px] text-text-secondary rounded border border-dark-border">Esc</kbd>
+          </button>
+        </div>
+      )}
 
       <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} />
     </div>
