@@ -44,15 +44,60 @@ export default function useWebRTC(isInitiator, partnerId, status) {
   const [isCameraOff, setIsCameraOff] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
   const [mediaError, setMediaError] = useState(null);
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [currentVideoId, setCurrentVideoId] = useState('');
+  const [currentAudioId, setCurrentAudioId] = useState('');
 
-  const startLocalStream = useCallback(async () => {
+  const loadDevices = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(MEDIA_CONSTRAINTS);
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      setVideoDevices(devices.filter((d) => d.kind === 'videoinput'));
+      setAudioDevices(devices.filter((d) => d.kind === 'audioinput'));
+    } catch (err) {
+      console.error('enumerateDevices error:', err);
+    }
+  }, []);
+
+  const startLocalStream = useCallback(async (videoId, audioId) => {
+    try {
+      const constraints = {
+        video: videoId
+          ? { deviceId: { exact: videoId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : MEDIA_CONSTRAINTS.video,
+        audio: audioId ? { deviceId: { exact: audioId } } : true,
+      };
+
+      // Stop old stream first
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       localStreamRef.current = stream;
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
+
+      // Track current device IDs
+      const vTrack = stream.getVideoTracks()[0];
+      const aTrack = stream.getAudioTracks()[0];
+      if (vTrack) setCurrentVideoId(vTrack.getSettings().deviceId || '');
+      if (aTrack) setCurrentAudioId(aTrack.getSettings().deviceId || '');
+
       setMediaError(null);
+      loadDevices();
+
+      // If already in a call, replace tracks on the peer connection
+      const pc = peerConnectionRef.current;
+      if (pc) {
+        const senders = pc.getSenders();
+        stream.getTracks().forEach((track) => {
+          const sender = senders.find((s) => s.track && s.track.kind === track.kind);
+          if (sender) sender.replaceTrack(track);
+        });
+      }
+
       return stream;
     } catch (err) {
       console.error('getUserMedia error:', err);
@@ -63,7 +108,10 @@ export default function useWebRTC(isInitiator, partnerId, status) {
       );
       return null;
     }
-  }, []);
+  }, [loadDevices]);
+
+  const switchVideoDevice = useCallback((deviceId) => startLocalStream(deviceId, currentAudioId), [startLocalStream, currentAudioId]);
+  const switchAudioDevice = useCallback((deviceId) => startLocalStream(currentVideoId, deviceId), [startLocalStream, currentVideoId]);
 
   // Setup WebRTC when matched
   useEffect(() => {
@@ -239,9 +287,15 @@ export default function useWebRTC(isInitiator, partnerId, status) {
     isCameraOff,
     connectionState,
     mediaError,
+    videoDevices,
+    audioDevices,
+    currentVideoId,
+    currentAudioId,
     toggleMute,
     toggleCamera,
     startLocalStream,
     stopLocalStream,
+    switchVideoDevice,
+    switchAudioDevice,
   };
 }

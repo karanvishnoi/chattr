@@ -123,7 +123,9 @@ export default function TextChat() {
             style={{ fontFamily: 'var(--font-display)' }}
             title="Skip to next stranger"
           >
-            <div className="text-xl font-bold">Stop</div>
+            <div className="text-xl font-bold">
+              {status === 'connected' ? 'Really?' : 'Stop'}
+            </div>
             <div className="text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</div>
           </button>
         </div>

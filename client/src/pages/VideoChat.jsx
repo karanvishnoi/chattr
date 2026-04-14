@@ -27,15 +27,36 @@ export default function VideoChat() {
     isCameraOff,
     connectionState,
     mediaError,
+    videoDevices,
+    audioDevices,
+    currentVideoId,
+    currentAudioId,
     toggleMute,
     toggleCamera,
     startLocalStream,
     stopLocalStream,
+    switchVideoDevice,
+    switchAudioDevice,
   } = useWebRTC(isInitiator, partnerId, status);
 
   const [showReport, setShowReport] = useState(false);
   const [showMobileChat, setShowMobileChat] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [showDeviceMenu, setShowDeviceMenu] = useState(false);
+  const [myCountry, setMyCountry] = useState(null);
+
+  // Fetch user's country for the "chatting with someone" indicator
+  useEffect(() => {
+    fetch('https://ipapi.co/json/')
+      .then((r) => r.json())
+      .then((d) => setMyCountry({ name: d.country_name, code: d.country_code, flag: getFlag(d.country_code) }))
+      .catch(() => {});
+  }, []);
+
+  function getFlag(code) {
+    if (!code) return '';
+    return String.fromCodePoint(...[...code.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
+  }
 
   const interests = searchParams.get('interests')?.split(',').filter(Boolean) || [];
 
@@ -178,8 +199,54 @@ export default function VideoChat() {
                 </div>
               )}
               <div className="absolute top-2 left-2 text-[10px] font-medium bg-dark/80 text-white px-2 py-1 rounded backdrop-blur-sm">
-                You
+                You {myCountry?.flag}
               </div>
+
+              {/* Flip Camera menu trigger */}
+              <button
+                onClick={() => setShowDeviceMenu(!showDeviceMenu)}
+                className="absolute top-2 right-2 text-[10px] font-medium bg-dark/80 hover:bg-dark text-white px-2 py-1 rounded backdrop-blur-sm cursor-pointer transition-colors"
+              >
+                Flip Camera ⚙
+              </button>
+
+              {/* Device selector dropdown */}
+              {showDeviceMenu && (
+                <>
+                  <div className="absolute inset-0 z-20" onClick={() => setShowDeviceMenu(false)} />
+                  <div className="absolute top-10 right-2 z-30 bg-dark-card border border-dark-border rounded-lg shadow-xl p-3 min-w-[220px] animate-fade-in">
+                    <div className="mb-3">
+                      <p className="text-[10px] uppercase tracking-wider text-text-secondary mb-1">Camera</p>
+                      <select
+                        value={currentVideoId}
+                        onChange={(e) => { switchVideoDevice(e.target.value); setShowDeviceMenu(false); }}
+                        className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+                      >
+                        {videoDevices.map((d) => (
+                          <option key={d.deviceId} value={d.deviceId}>
+                            {d.label || `Camera ${d.deviceId.slice(0, 6)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-text-secondary mb-1">Microphone</p>
+                      <select
+                        value={currentAudioId}
+                        onChange={(e) => { switchAudioDevice(e.target.value); setShowDeviceMenu(false); }}
+                        className="w-full text-xs bg-dark border border-dark-border rounded px-2 py-1.5 text-text-primary focus:outline-none focus:border-accent cursor-pointer"
+                      >
+                        {audioDevices.map((d) => (
+                          <option key={d.deviceId} value={d.deviceId}>
+                            {d.label || `Mic ${d.deviceId.slice(0, 6)}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="absolute bottom-2 right-2 flex gap-1.5">
                 <button onClick={toggleMute} className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm transition-colors cursor-pointer ${isMuted ? 'bg-danger/80 text-white' : 'bg-dark/70 text-white hover:bg-dark'}`}>
                   {isMuted ? (
@@ -210,13 +277,17 @@ export default function VideoChat() {
             ) : (
               <>
                 <div className="px-4 py-3 border-b border-dark-border flex items-center justify-between shrink-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
-                      status === 'connected' ? 'bg-success animate-pulse' :
-                      status === 'searching' ? 'bg-accent animate-pulse' :
-                      'bg-text-secondary'
-                    }`} />
-                    <p className="text-sm font-medium">{statusMessage}</p>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      {status === 'connected' && <span>🫶</span>}
+                      <p className="text-sm font-medium">{statusMessage}</p>
+                    </div>
+                    {status === 'connected' && myCountry && (
+                      <div className="flex items-center gap-1.5 text-xs text-text-secondary">
+                        <span>{myCountry.flag}</span>
+                        <span>{myCountry.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -237,7 +308,9 @@ export default function VideoChat() {
             style={{ fontFamily: 'var(--font-display)' }}
             title="Skip to next stranger"
           >
-            <div className="text-xl font-bold">Stop</div>
+            <div className="text-xl font-bold">
+              {status === 'connected' ? 'Really?' : 'Stop'}
+            </div>
             <div className="text-[10px] text-accent-light font-medium uppercase tracking-wider">Esc</div>
           </button>
         </div>
